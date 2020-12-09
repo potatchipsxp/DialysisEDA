@@ -27,4 +27,34 @@ Linear_smallDataS = dataS %>%
 smallDataR = dataR %>% 
   select(!c("Network","Facility Name","Five Star Date","Five Star","Five Star Data Availability Code","Address Line 1","Address Line 2","City","State","Zip","County","Phone Number",))
 
+ourData = Linear_smallDataS %>% 
+  left_join(smallDataR, by = "Provider Number") %>% 
+  filter(!is.na(Facility))
+
 ourData = left_join(Linear_smallDataS, smallDataR, "Provider Number")
+
+ourDataN = select(ourData, where(is.numeric), where(is.factor))
+
+cor_matrix = ourDataN %>%
+  mutate_if(is.factor, as.numeric) %>%
+  cor(method = 'spearman')
+
+cor_df = as_tibble(cor_matrix, rownames = 'covar')
+
+cor_df %>% 
+  select(covar, Facility) %>% 
+  top_n(10,Facility)
+
+cor_df %>% 
+  select(covar, Staff) %>% 
+  top_n(10,Staff)
+
+#run t test
+forProfit_df = Linear_smallDataS %>% 
+  filter(PoNP == "Profit", !is.na(Facility)) 
+
+NonProfit_df = Linear_smallDataS %>% 
+  filter(PoNP == "Non-Profit", !is.na(Facility)) 
+
+t.test(forProfit_df$Facility, NonProfit_df$Facility)
+
