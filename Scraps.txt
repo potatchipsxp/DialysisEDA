@@ -1,0 +1,153 @@
+
+lastFIP = "none"
+lastCOUNTY = "none"
+for (i in 1:length(dataP2$FIPS)) {
+  lastFIP = dataP2$FIPS[i]
+  if("try-error" %in% class(t)) alternativeFunction()
+  lastCOUNTY = fipscounty(code = dataP2$FIPS[i])
+  
+}
+
+class(dataP2[1:length(dataP2$FIPS),"FIPS"])
+
+dataP2$FIPS[1]
+
+testFIPS = dataP2$FIPS[2:10] %>% 
+  fipscounty()
+               
+
+as.list(dataP2$FIPS[2:10])
+
+my_vector <- vector("numeric", length(dataP2$FIPS))
+for(i in 1:length(dataP2$FIPS)) {
+  tryCatch(my_vector[i] = fipscounty(dataP2$FIPS[i]), error=function(e) my_vector[i] = NaN)
+}
+my_vector
+
+dataP2$FIPS
+
+my_vector2 <- sapply(as.list(dataP2$FIPS), fipscounty, county = NULL)
+my_vector2               
+
+
+testFunction <- function (date_in) {
+  return(tryCatch(as.Date(date_in), error=function(e) NULL))
+}               
+
+getCounty <- function(x){
+  tryCatch(
+    expr = {
+      return(fipscounty(x))
+    },
+    error = function(e){
+      return(NaN)
+    },
+    finally = {
+      message('All done, quitting.')
+    }
+  )    
+}
+
+fipscounty(county = NULL, code = dataP2$FIPS[2:10])
+
+dataP$County = dataP$FIPStxt %>% 
+  fixingFIPS() %>% 
+  fipscounty(code = )
+
+paste(c("0", toString(dataP$FIPStxt[2])), collapse="")
+
+dataS[,"`Provider Number`"]
+
+dataP[["FIPStxt"]][0]
+
+testVar = dataP$FIPStxt
+
+testVar2 = testVar %>% 
+  as.character()
+
+testOut = testVar %>% 
+  fixingFIPS()
+
+length(testVar2[3])
+
+fipscounty(code = dataP$FIPS[2])
+
+dataP$FIPS[2]
+
+
+for(i in 78:85) {
+  temp = dataP2$FIPS[i]
+  print(temp)
+  print(fipscounty(code = temp))
+  my_vector[i] = getCounty(temp)
+}
+
+
+dataP2$FIPS
+dataP2$FIPS[2]
+
+fipscounty(code = "01000")
+
+
+getCounty <- function(codes){
+  output <- vector("list", length=length(codes))
+  tryCatch({
+    for(i in 1:length(codes)){
+      output[[i]] <- fipscounty(code=codes[i])
+      
+    }},error=function(e) output[[i]] <- "wasnt there")
+  return(output)
+}
+
+getCounty(dataP2$FIPS[78:85])
+
+print("this")
+try(fipscounty(code = dataP2$FIPS[79]))
+print("that")
+
+stupid = "dumb"
+tryCatch(stupid = fipscounty(code = dataP2$FIPS[79]), errorCondition("Error: Internal Server Error (HTTP 500)"))
+print("something")
+
+for (i in 1:82) {
+  #ERROR HANDLING
+  possibleError <- tryCatch(
+    fipscounty(code = dataP2$FIPS[i]),
+    error=function(e) e
+  )
+  
+  if(inherits(possibleError, "error")) next
+  
+  #REAL WORK
+  print(fipscounty(code = dataP2$FIPS[i]));
+  
+}
+
+
+getCounty <- function(code) {
+  county <- tryCatch(
+    {
+      message("in try")
+  
+      fipscounty(code = code)
+      
+    },
+    error=function(error) {
+      message("in error")
+      message(code)
+      message(cond)
+      return(NA)
+    }
+  )    
+  return(county)
+}
+
+
+
+
+
+
+
+
+
+

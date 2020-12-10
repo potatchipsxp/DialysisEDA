@@ -3,6 +3,7 @@ library(skimr)
 library(visdat)
 library(dplyr)
 library(here)
+library(rerddap)
 
 #Ireally want to use the here function but my R is configured stupidly and I dont have time to fix it right now
 here()
@@ -10,6 +11,9 @@ here::here("DialysisEDA", "data", 'PatientSurvey.csv')
 
 dataS = read_csv(file.path('DialysisEDA/data', 'PatientSurvey.csv'))
 dataR = read_csv(file.path('DialysisEDA/data', 'FacilityReview.csv'))
+dataP = read_csv(file.path('DialysisEDA/data', 'PovertyEstimates.csv'))
+
+dataP
 
 skimr::skim(dataS)
 skimr::skim(dataR)
@@ -21,17 +25,15 @@ colnames(dataR)
 vis_miss(dataS, warn_large_data = FALSE)
 
 Linear_smallDataS = dataS %>%  
-  select(`Provider Number`, `Profit or Non-Profit`, `Chain Owned`, `Chain Organization`, `Linearized score of nephrologists' communication and caring`, `Linearized score of quality of dialysis center care and operations`, `Linearized score of providing information to patients`, `Linearized score of rating of the nephrologist`, `Linearized score of rating of the dialysis center staff`, `Linearized score of rating of the dialysis facility`) %>% 
+  select(`Provider Number`, `State`, `County`, `Profit or Non-Profit`, `Chain Owned`, `Chain Organization`, `Linearized score of nephrologists' communication and caring`, `Linearized score of quality of dialysis center care and operations`, `Linearized score of providing information to patients`, `Linearized score of rating of the nephrologist`, `Linearized score of rating of the dialysis center staff`, `Linearized score of rating of the dialysis facility`) %>% 
   rename(PoNP = `Profit or Non-Profit`, Chain = `Chain Owned`,Org = `Chain Organization`, CnC = `Linearized score of nephrologists' communication and caring`,Operations = `Linearized score of quality of dialysis center care and operations`, info = `Linearized score of providing information to patients`, Neph =  `Linearized score of rating of the nephrologist`, Staff = `Linearized score of rating of the dialysis center staff`, Facility = `Linearized score of rating of the dialysis facility`)
 
 smallDataR = dataR %>% 
-  select(!c("Network","Facility Name","Five Star Date","Five Star","Five Star Data Availability Code","Address Line 1","Address Line 2","City","State","Zip","County","Phone Number",))
+  select(!c("Network","Facility Name","Five Star Date","Five Star","Five Star Data Availability Code","Address Line 1","Address Line 2","City","Zip","Phone Number",))
 
 ourData = Linear_smallDataS %>% 
-  left_join(smallDataR, by = "Provider Number") %>% 
+  left_join(smallDataR, by = c("Provider Number", "State", "County")) %>% 
   filter(!is.na(Facility))
-
-ourData = left_join(Linear_smallDataS, smallDataR, "Provider Number")
 
 ourDataN = select(ourData, where(is.numeric), where(is.factor))
 
@@ -57,4 +59,70 @@ NonProfit_df = Linear_smallDataS %>%
   filter(PoNP == "Non-Profit", !is.na(Facility)) 
 
 t.test(forProfit_df$Facility, NonProfit_df$Facility)
+
+
+
+
+
+
+
+fixingFIPS <- function(arg_1) {
+  return_val = ifelse(arg_1 < 10000, 
+                      paste0('0', as.character(arg_1)), 
+                      as.character(arg_1))
+  return(return_val)
+}
+
+
+dataP2 = dataP[as.numeric(dataP$FIPStxt) > 1,]
+
+dataP2$FIPS = fixingFIPS(dataP2$FIPStxt)
+  
+  
+
+my_vector <- vector("numeric", length(dataP2$FIPS))
+
+
+for (i in 1:length(dataP2$FIPS)) {
+  #ERROR HANDLING
+  possibleError <- tryCatch(
+    fipscounty(code = dataP2$FIPS[i]),
+    error=function(e) e
+  )
+  
+  if(inherits(possibleError, "error")) next
+  
+  #REAL WORK
+  my_vector[i] = fipscounty(code = dataP2$FIPS[i])
+  
+}
+
+my_vector
+
+statesVec <- vector("numeric", length(dataP2$FIPS))
+
+countiesVec <- vector("numeric", length(dataP2$FIPS))
+
+for(i in 1:length(my_vector)){
+  statesVec[i] = toupper(unlist(strsplit(my_vector[i], ","))[1])
+  countiesVec[i] = toupper(substring(unlist(strsplit(my_vector[i], ","))[2], 2))
+}
+
+
+
+toupper(substring(unlist(strsplit(my_vector[2], ","))[[2]], 2))
+
+dataP2$County = countiesVec
+dataP2$State = statesVec
+
+fullData = left_join(ourData, dataP2, by = c("State", "County"))
+
+colnames(ourData)
+
+write.csv(fullData,"DialysisEDA/data\\cleanData.csv", row.names = FALSE)
+
+
+
+
+
 
