@@ -7,7 +7,46 @@ library(rerddap)
 
 #Ireally want to use the here function but my R is configured stupidly and I dont have time to fix it right now
 here()
-here::here("DialysisEDA", "data", 'PatientSurvey.csv')
+
+
+fixingFIPS = function(arg_1) {
+  return_val = ifelse(arg_1 < 10000, 
+                      paste0('0', as.character(arg_1)), 
+                      as.character(arg_1))
+  return(return_val)
+}
+
+getCounty = function(fips){
+  
+  fips = fixingFIPS(fips)
+  
+  my_vector = vector("numeric", length(fips))
+  
+  for (i in 1:length(fips)) {
+    #ERROR HANDLING
+    possibleError <- tryCatch(
+      fipscounty(code = fips[i]),
+      error=function(e) e
+    )
+    
+    if(inherits(possibleError, "error")) next
+    
+    #REAL WORK
+    my_vector[i] = fipscounty(code = fips[i])
+    
+  }
+  statesVec <- vector("numeric", length(fips))
+  
+  countiesVec <- vector("numeric", length(fips))
+  
+  for(i in 1:length(my_vector)){
+    statesVec[i] = toupper(unlist(strsplit(my_vector[i], ","))[1])
+    countiesVec[i] = toupper(substring(unlist(strsplit(my_vector[i], ","))[2], 2))
+  }
+  
+  return(list(countiesVec,statesVec))
+}
+
 
 dataS = read_csv(file.path('DialysisEDA/data', 'PatientSurvey.csv'))
 
@@ -22,7 +61,45 @@ dataR = read_csv(file.path('DialysisEDA/data', 'FacilityReview.csv'))
 
 dataP = read_csv(file.path('DialysisEDA/data', 'PovertyEstimates.csv'))
 smalldataP = dataP %>% 
-  select("FIPStxt", "POVALL_2018")
+  select("FIPStxt", "POVALL_2018", "MEDHHINC_2018")
+
+testList = getCounty(dataP$FIPStxt)
+
+
+dataP = dataP[as.numeric(dataP$FIPStxt) > 1,]
+
+dataP$FIPS = fixingFIPS(dataP$FIPStxt)
+
+
+Pvector = vector("numeric", length(dataP$FIPS))
+
+
+for (i in 1:length(dataP$FIPS)) {
+  #ERROR HANDLING
+  possibleError <- tryCatch(
+    fipscounty(code = dataP$FIPS[i]),
+    error=function(e) e
+  )
+  
+  if(inherits(possibleError, "error")) next
+  
+  Pvector[i] = fipscounty(code = dataP$FIPS[i])
+  
+}
+
+statesVec <- vector("numeric", length(dataP$FIPS))
+countiesVec <- vector("numeric", length(dataP$FIPS))
+
+for(i in 1:length(Pvector)){
+  statesVec[i] = toupper(unlist(strsplit(Pvector[i], ","))[1])
+  countiesVec[i] = toupper(substring(unlist(strsplit(Pvector[i], ","))[2], 2))
+}
+
+dataP$County = countiesVec
+dataP$State = statesVec
+
+
+
 
 
 
@@ -77,25 +154,6 @@ NonProfit_df = Linear_smallDataS %>%
 t.test(forProfit_df$Facility, NonProfit_df$Facility)
 
 
-
-
-
-
-
-fixingFIPS <- function(arg_1) {
-  return_val = ifelse(arg_1 < 10000, 
-                      paste0('0', as.character(arg_1)), 
-                      as.character(arg_1))
-  return(return_val)
-}
-
-
-dataP2 = dataP[as.numeric(dataP$FIPStxt) > 1,]
-
-dataP2$FIPS = fixingFIPS(dataP2$FIPStxt)
-  
-  
-
 my_vector <- vector("numeric", length(dataP2$FIPS))
 
 
@@ -111,6 +169,39 @@ for (i in 1:length(dataP2$FIPS)) {
   #REAL WORK
   my_vector[i] = fipscounty(code = dataP2$FIPS[i])
   
+}
+
+getCounty = function(Df, column){
+  
+  df = Df
+  
+  df$FIPS = fixingFIPS(df$column)
+  
+  my_vector = vector("numeric", length(df$FIPS))
+  
+  for (i in 1:length(df$FIPS)) {
+    #ERROR HANDLING
+    possibleError <- tryCatch(
+      fipscounty(code = df$FIPS[i]),
+      error=function(e) e
+    )
+    
+    if(inherits(possibleError, "error")) next
+    
+    #REAL WORK
+    my_vector[i] = fipscounty(code = dataP2$FIPS[i])
+    
+  }
+  statesVec <- vector("numeric", length(df$FIPS))
+  
+  countiesVec <- vector("numeric", length(df$FIPS))
+  
+  for(i in 1:length(my_vector)){
+    statesVec[i] = toupper(unlist(strsplit(my_vector[i], ","))[1])
+    countiesVec[i] = toupper(substring(unlist(strsplit(my_vector[i], ","))[2], 2))
+  }
+  dataP2$County = countiesVec
+  dataP2$State = statesVec
 }
 
 my_vector
@@ -130,6 +221,8 @@ toupper(substring(unlist(strsplit(my_vector[2], ","))[[2]], 2))
 
 dataP2$County = countiesVec
 dataP2$State = statesVec
+
+
 
 fullData = left_join(ourData, dataP2, by = c("State", "County"))
 

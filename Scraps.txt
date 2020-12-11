@@ -150,4 +150,12 @@ getCounty <- function(code) {
 
 
 
+fipsChart = read_csv(file.path('DialysisEDA/data', 'fipsChart.csv'))
+fipsChart$FIPS =paste0(fipsChart$`State Code (FIPS)`, fipsChart$`County Code (FIPS)`, "")
+fipsChart$County = toupper(fipsChart$`Area Name (including legal/statistical area description)`)
+fipsChart = fipsChart %>% 
+  select(FIPS, County)
+
+
+
 
