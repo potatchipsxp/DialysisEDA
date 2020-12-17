@@ -1,0 +1,212 @@
+---
+title: "EDA"
+author: "Tim Meyer"
+date: 12 14 2020
+abstract: This is an exploration of dialysis center success in terms of positive feedback from patients.  
+colorlinks: true
+
+geometry: "margin=1.25in"
+mainfont: "Georgia"
+fontsize: 12pt
+
+output: html_document
+---
+
+```{r, import-libs, echo=FALSE, results='hide', include=FALSE}
+library(tidyverse)
+library(skimr)
+library(visdat)
+library(dplyr)
+library(here)
+library(ggplot2)
+
+library(pander)
+
+library(kableExtra)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Introduction #
+  Dialysis is the practice of mechanicly cleaning blood for someone, usually someone whose kidney are not working well enough to clean it themselves. This field is growing rapidly and is attracting a significant amount of lpublic attention such as the recent proposition 22. As someone who is married to dialysis social worker my day is constantly filled with stories about about how procedures operate in this field. In particular I hear a great deal of stories about how pateint characteristics ANECDOTALLY seem to affect their longterm outcome, and how pateint characteristics seem to affect the efficacy of the center. I decided to do an EDA on Dialysis center data and search for ways to quantify these relationships such that dialysis centers could make more informed decisions about how to help pateints, and how to evaluate their efforts. To do this I downloaded dialysis center data from CMS.gov who evaluates dialysis facilities around the country. I then gathered regional economic data at the county level, as I am not privvy to individual patient data and went exploring. (more details about the data, as well as the URLs are in the readme)
+
+# EDA #
+  The first thing we do is look at our data to check its integrity. Here we have two types of data from two different sources. First we have dialysis facility data which includes patient survey responses and state review data. The second is our economic / demographic data at the county level because we are interested in how county level economics and demographics affects dialysis center performance.
+  Lets begin with our medical data. This data actually comes from two different data sets. The furst data set is survey data in which pateients are handed out surveys and respond to questionairre items such as how well they feel taken care of at their facility, how much they trust the staff, etc. The second is from mandated state reviews of dialysis facilities in which the state comes and reviews the facility every X amomunt time. First lets look at the survey data. 
+  
+
+  
+  
+
+```{r, importData, echo = FALSE, results='hide', include=FALSE}
+
+#here we import the data. We have taken steps in earier scripts to wrangle this data so here we import the raw files but also the precleaned files so that we dont have to actually perform the cleaining process in this script.
+
+dataS = read_csv(file.path('data', 'PatientSurvey.csv'))
+dataR = read_csv(file.path('data', 'FacilityReview.csv'))
+dataMed = read_csv(file.path('data', 'cleanMedData.csv'))
+dataM_N = select(dataMed, where(is.numeric), where(is.factor))
+dataDemog = read_csv(file.path('data', 'cleanDemogData.csv'))
+
+```
+
+the survey data has `r nrow(dataS)` rows which would correspond to the averaged responses for every individual facility in the country and `r ncol(dataS)` columns which correspond to the variables being measured by the questionairre such as nephrologist bedside manner facility quality of care and operations. 
+
+The question we are interested in here is how well state review of the medical practice in the facility corresponds to pateint reviews of the facility. To do that we will need to also look at state review data which has `r nrow(dataR)` rows which again corresponds to all every dialysis facility and `r ncol(dataR)` columns which correspond to the variables measured in the state review such as type of access in pateints, quality of facility operations, amount of patients with high kt over V and other variables important to describing the medical care provided by the facility.
+
+We combined these two data sets into a single set for our analysis. We also cleaned the data and removed bad rows and redunant columns. For example, because this data set contains every state approved dialysis facility many of the dialysis facilities in the dataset are small and didnt have adequate data. In addition many of the variables measured only apply to certain facilites such as number of pediatric pateints which nly applies to dialysis center that have pediatric care. We removed any columns, like these, which were providing values of null for more than half of the data set We also dropped all non numeric variables as this is a simple exporatory analysis, though future analyses might take those into account. At this point we were left with `r nrow(dataM_N)` facilities and `r ncol(dataM_N)` variables left in our medical data. 
+
+one ineresting first pass analysis is to look at the difference between for profit and not for profit dialysis centers. 
+
+```{r, profittest, echo=FALSE}
+#to compare profit and non profit facility we split our data set into two samples, one of for profit centers and one of not for profit center
+
+forProfit_df = dataMed %>% 
+  filter(PoNP == "Profit", !is.na(Facility)) 
+
+NonProfit_df = dataMed %>% 
+  filter(PoNP == "Non-Profit", !is.na(Facility)) 
+
+
+#we then run a simple t test and output the results
+t.test(forProfit_df$Facility, NonProfit_df$Facility) %>% 
+  pander()
+
+```
+Here we see that nonprofit dialysis centers are actually significantly better rated by their patients. take that capitalism. Although admittedly the practical difference does not seem to be very high.
+
+
+As we are interested in how medical reviews relate to pateint facility review we created a correclation amtrix and then selected the top 10 correlation ith facility review (a whole correlation matrix was way to big). 
+
+```{r, correlationmatrix, echo = FALSE, include=FALSE}
+#since we are exploring the data we feel that a correlation matrix is appropriate for finding clues about relationships among variables. 
+#first we create a correlation matrix
+
+cor_matrix = dataM_N %>%
+  mutate_if(is.factor, as.numeric) %>%
+  cor(method = 'spearman')
+
+cor_df = as_tibble(cor_matrix, rownames = 'covar')
+
+```
+
+```{r, echo=FALSE}
+#then we select the top ten most correlated items with facility review
+cor_df %>% 
+  select(covar, Facility) %>% 
+  top_n(10,Facility) %>% 
+  kbl() 
+
+```
+<br>  
+  
+Several interesting things pop out here. The first is that while pateints feelings about the staff are very related to their review of the facility, their doctor is very unrelated. I followed this up with an interview with a social worker who works at a local dialysis center (my wife) and she informed that one of the biggest frustration pateins have is the dialysis doctors bedside manner which is often rushed and impersonal. This is componded by the fact that there are very few nepjhrologists. In the  Merced area there are only a handful of nephrologists, but hundreds if not thousands of regular dialysis pateints. 
+
+A second interesting thign to observe in this correlation matrix is that one of the only medical items that makes it into the top ten correlations with facility review is the rate of A/V fistula accesses. AV fistula the most reccommended type of access point because it is least prone to infection. In fact according to the same social worker, the dialysis facilities in her company are evaluated based on the percentage of apteints they have who have AV fistula access points. However, the av fistula is not installed first on pateints who "crash" into dialysis because it is not as easy as some other access points to install and is therefore not installed in emergency situations. Many pateint however, especially in low income areas where medical care is less available are not aware of their kidney problems until they are hospitalized and have to have emergency dialysis. In this sense it might be of interest to companies to who evaluate their dialysis center based on the percentage of Av fistula access points to know how much to account for income in the area surrounding the facility during evaluations.
+
+To do this we need examine the relationship between economic data in the surrounding area dn the rate of av fistula for each facility. The interviewee also positied that eucation level of the patient make a difference in how easy it is to convince the pateint to get the av fistula because many pateints simple refuse to switch despite the benefits. We currated a dataset of economic and education data at the county level in the united states. We then combined that data with a subset of our Medical data and made a correlation matrix to investigate.
+
+```{r, econCorr, echo = FALSE}
+
+#to look at relationships between av fistula and economic variables we create a new dataset with  just a few of our medical variables and some new demographics variables including median household income and education levels in counties. 
+smalldataM = dataMed %>% 
+  select("Provider Number", "State", "County", "Facility", "PoNP", "Fistula Rate (Facility)")
+
+#We then match the medical data with the appropriate county data for the dialysis facility
+
+fullData = left_join(smalldataM, dataDemog, by = c("State", "County"))
+
+#remove any variables that cant be used in a correlation matrix
+fullData2 = fullData %>% 
+  select(!c("Provider Number",                                                         
+            "State",                                                                   
+            "County",                                                                  
+            "PoNP",
+            "FIPStxt",
+            "FIPS")) %>% 
+  na.omit() 
+
+colnames(fullData2) = c("Facility", "Fistula_Rate", "POV" , "MEDHHINC", "P<HD", "P=HD", "P=AA", "P>=BA")
+
+
+#create a correlation matric
+cor_matrixDemo = fullData2 %>%
+  mutate_if(is.factor, as.numeric) %>%
+  cor(method = 'spearman') %>% 
+  round(2)
+
+
+corDemo_df = as_tibble(cor_matrixDemo, rownames = 'covar')
+
+```
+
+```{r echo=FALSE}
+kbl(corDemo_df) %>%
+  kable_styling(font_size = 10)
+```
+
+
+maybe it would be better to investigate education as a single variable.
+
+
+```{r, addedAggEdu, echo=FALSE}
+
+#combine the education levels data by weighting the percentage of people by each level
+fullData2$avgEdu = fullData2$`P=HD` + fullData2$`P=AA` * 2 + fullData2$`P>=BA` * 3
+
+#recreate the correlation matrix with the new education vairable
+cor_matrixDemo = fullData2 %>%
+  mutate_if(is.factor, as.numeric) %>%
+  cor(method = 'spearman') %>% 
+  round(2)
+
+corDemo_df = as_tibble(cor_matrixDemo, rownames = 'covar')
+```
+
+```{r echo=FALSE}
+kbl(corDemo_df) %>%
+  kable_styling(font_size = 10)
+```
+
+
+Education is still not predictive. Only Median income seems to be very predictive. Lets make a quick regression for median income.
+
+```{r, regression, echo=FALSE}
+#Fist_by_Econ = lm(`Fistula Rate (Facility)` ~ `MEDHHINC_2018`, data = fullData2)
+
+Fist_by_Econ = lm(scale(Fistula_Rate) ~ scale(MEDHHINC), data=fullData2)
+
+
+pander(Fist_by_Econ)
+
+```
+here it would seem that median household income is a significant and useful predictor of AV fistula rate with a standardized beta of .2012   and p<.001. This is not a huge R squared, but as we discuss later, the economic data we are using is at the county level and there is a significant amount of variance in economic data for pateints at dialysis facilites that is neglected by look at it at that scale.  
+
+Lets make a plot for and chck it out.
+
+```{r, scatterplot, echo=FALSE}
+
+
+ggplot(data = fullData2, aes(x = MEDHHINC, y = Fistula_Rate)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method=lm) +
+  xlab("Median House Hold Income") + 
+  ylab("AV Fistula Rate") +
+  ggtitle("Fistual Predicted By Income")
+
+
+```
+
+
+# Summary of Findings
+
+Im summary first we found that nonprofit clinics are better liked by their patients. We also found that the most important measure of a facility medical practice in predicting the patients attitude toward the clinic was the rate of AV fistula for the clinic. We then examined how well regional economic and demographic data predicts the av fistula rate for a facility and ground that household income was a useful predictor of the rate of av fistula in a facility. We think this could be informative for businesses that evaluate their clinics on rate of av fistula for two reasons, one it allows a the business to make a more accurate assessment of the expected rate of fistula access points, and second it shows that at least some of the effect of rate of av fistula lies with the patient and not the facility which might inform medical practice in terms of how to give advice on access points.
+
+
+# Limitations and Future Directions
+
+
+One major limitation with this research is that the economic and demographic data was taken at the county level which is a much larger region than a clinic normally draws from. In Merced city alone there are 6 dialysis centers and one could reasonably expect that those 6 center vary in terms of average median income of patients. If we had access to individual patient data we could potentially greatly improve our analysis. 
+
+
